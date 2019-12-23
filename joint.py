@@ -135,26 +135,44 @@ def crab_skymodel(axes, prefactor, index, sigma):
     return crab_spatial(xx, yy) * crab_spctral(ee)
 
 
-def get_likelihood(axes, model, **kwargs):
+def get_pred_cube(axes, model, exposure, background, **kwargs):
+    """Calculate model prediction cube
+
+    Parameters
+    ----------
+    axes : tuple of 1-D array 
+        energy, dx, dy center of bins
+    model : function
+        source skymodel
+    exposure : 3-D array
+        exposure for each data bin
+    background : 3-D array
+        background data cube
+    **kwargs : dict
+        parameter set of input model
+    
+    Returns 
+    -------
+    pred_cube : 3-D array 
+        prediction data cube of given model and background
+    """
+    return model(axes, **kwargs) * exposure + background
+
+def get_likelihood(pred_cube, counts, **kwargs):
     """Calculate binned likelihood
     
     Parameters
     ----------
-    axes : tuple of 1-D array
-        binned range in all directions
-    model : skymodel function
-        skymodel function
-    **kwargs : dict 
-        parameter set of input model
-
+    pred_cube : 3-D array
+        prediction cube from model
+    counts : 3-D array
+        observation data cube 
 
     Returns 
     -------
     out : float 
-        log likelihood of parameters for given model
+        log likelihood of parameters for prediction cube
     """
-    # energy, dy, dx = axes
-    pred_cube = model(axes, **kwargs) * exposure + background
     pred_total = np.sum(pred_cube)
     # In order to avoid too large number for fatorial
     # use Stirling's Approximation here, which is 
@@ -172,7 +190,9 @@ def get_likelihood(axes, model, **kwargs):
                                             - counts_masked[mask_large] * np.log10(np.e) 
     # For a given bin range, data_fatorial is reusable
     data_factorial = np.sum(counts_factorial)
-    log_like = np.sum(counts * np.log10(pred_cube)) - data_factorial
+    # TODO : What if element in pred_cube equals zero?
+    # To avoid zero division, add a tiny quantity to pred_cube
+    log_like = np.sum(counts * np.log10(pred_cube + 1e-12)) - data_factorial
     log_like = -pred_total * np.log10(np.e) + log_like
     return log_like
 
