@@ -70,7 +70,7 @@ def model_fit(data, axes, model, optimizer):
     """
 
 
-def crab_skymodel(axes, index, sigma):
+def crab_skymodel(axes, prefactor, index, sigma):
     """Spatial and spectral model of crab
 
     Parameters 
@@ -83,6 +83,8 @@ def crab_skymodel(axes, index, sigma):
             x offset
     axes : tuple of 1-D array
         cube axes 
+    prefactor : float
+        prefactor for spectral model
     index : float
         power law index
     sigma : angle
@@ -126,7 +128,7 @@ def crab_skymodel(axes, index, sigma):
             spectral value
         """
         refernce_energy = 100 * u.GeV
-        return (energy / refernce_energy)**index
+        return prefactor * (energy / refernce_energy)**index
 
     # TODO: order of meshgrid is not clear
     yy, ee, xx, = np.meshgrid(dely, energy, delx)
@@ -175,6 +177,33 @@ def get_likelihood(axes, model, **kwargs):
     return log_like
 
 
+def plot_cube(cube, index):
+    """Plot data cube for convenience
+
+    Parameters
+    ----------
+    cube : 3-D array
+        Input data
+    index : slice object
+        index of maps to be plotted
+
+    Returns 
+    -------
+    fig : figure object
+    axs : list of axes object
+    """
+    _maps = cube[index]
+    fig, axs = plt.subplots(nrows=len(_maps) + 1, figsize=(10, 20))
+    # Plot 2D map for every energy bin
+    for ax, _map in zip(axs, _maps):
+        ax.imshow(_map)
+    # Plot SED for center pixel 
+    axs[-1].plot(cube[:, 20, 25], "ro--")
+    axs[-1].loglog()
+    fig.tight_layout()
+    return fig, axs
+
+
 if __name__ == "__main__":
     fname = "./Fermi-LAT-3FHL_data_Fermi-LAT.fits"
     fermi_hdul = read(fname)
@@ -188,10 +217,19 @@ if __name__ == "__main__":
     background = fermi_hdul["BACKGROUND"].data
     counts = fermi_hdul["COUNTS"].data
 
-    test_parameter = {"index": -3, "sigma": 0.3 * u.degree}
+    test_parameter = {"prefactor": 1e-5, "index": -3, "sigma": 0.1 * u.degree}
     # dx = np.arange()  
     # dy = np.arange()  
-    dx = np.linspace(-1, 1, 50) * u.degree
-    dy = np.linspace(-1, 1, 40) * u.degree
+    # TODO : use REAL dx, dy here
+    deltx = fermi_hdul["COUNTS"].header["CDELT1"] 
+    delty = fermi_hdul["COUNTS"].header["CDELT2"] 
+    dx_edges = np.linspace(-25, 25, 51) * u.degree * deltx
+    dy_edges = np.linspace(-20, 20, 41) * u.degree * delty
+    # Use averge value for position center coordinate
+    dx = (dx_edges[:-1] + dx_edges[1:]) / 2
+    dy = (dy_edges[:-1] + dy_edges[1:]) / 2
     test_likelihood = get_likelihood((energy_center, dx, dy), crab_skymodel, **test_parameter)
-    print(test_likelihood)
+    guess_parameter = {"prefactor": 1e-9, "index": -3.18, "sigma": 0.5 * u.degree}
+    guess_likelihood = get_likelihood((energy_center, dx, dy), crab_skymodel, **guess_parameter)
+    print(f"test: {test_likelihood:.3E}\n"
+           f"guess: {guess_likelihood:.3E}")
