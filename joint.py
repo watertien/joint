@@ -112,7 +112,7 @@ def crab_skymodel(axes, prefactor, index, sigma):
         out : float
             spatial value
         """
-        return np.exp(-( delx**2 + dely**2 ) / (2 * sigma**2) )
+        return np.exp(-(delx**2 + dely**2) / (2 * sigma**2))
 
     def crab_spctral(energy):
         """Spectal model of crab, power-law
@@ -127,7 +127,7 @@ def crab_skymodel(axes, prefactor, index, sigma):
         out : astropy.Quantity
             spectral value
         """
-        refernce_energy = 100 * u.GeV
+        refernce_energy = 100 * u.GeV 
         return prefactor * (energy / refernce_energy)**index
 
     # TODO: order of meshgrid is not clear
@@ -157,6 +157,7 @@ def get_pred_cube(axes, model, exposure, background, **kwargs):
         prediction data cube of given model and background
     """
     return model(axes, **kwargs) * exposure + background
+
 
 def get_likelihood(pred_cube, counts, **kwargs):
     """Calculate binned likelihood
