@@ -14,7 +14,7 @@ def read(fname):
     fname : str
          Filename of data file
 
-    Returns 
+    Returns
     -------
     out : astropy.io.fits.HDUList
         HDUList object of input fits file
@@ -25,7 +25,7 @@ def read(fname):
     >>> print(hdul.info)
     'Fermi-LAT-3FHL_data_Fermi-LAT.fits'
     """
-    
+
     return fits.open(fname, mode="readonly")
 
 
@@ -34,7 +34,7 @@ def get_flux(hdulist, axes):
 
     Parameters
     ----------
-    hdulist : HDUList object 
+    hdulist : HDUList object
         HDUList containing COUNTS, BACKGROUND, E_DISP, PSF HDUs
     axes : tuple of 1-D array
         Coordinate of cube point, in the order of counts data
@@ -52,19 +52,19 @@ def model_fit(data, axes, model, optimizer):
     Parameters
     ----------
     data : NDarray
-        Flux data cube 
+        Flux data cube
     axes : tuple of 1-D array
         Coordinate of cube point
     model : function
         Function that can calculate flux for given coordinate
     optimizer : str
         Optimization method to be used in scipy.optimize,
-        options are: BFGS, COBYLA, least_squares etc.  
+        options are: BFGS, COBYLA, least_squares etc.
 
-    Returns 
+    Returns
     -------
     fit_parameters : 1-D array
-        Best fit parameter set 
+        Best fit parameter set
     fit_covariance : matrix
         Covariance matrix of fit result
     """
@@ -73,16 +73,16 @@ def model_fit(data, axes, model, optimizer):
 def crab_skymodel(axes, prefactor, index, sigma):
     """Spatial and spectral model of crab
 
-    Parameters 
+    Parameters
     ----------
         energy : ndarray
             energy coordinates
         dely : ndarray
-            y offset    
-        delx : ndarray   
+            y offset
+        delx : ndarray
             x offset
     axes : tuple of 1-D array
-        cube axes 
+        cube axes
     prefactor : float
         prefactor for spectral model
     index : float
@@ -93,7 +93,7 @@ def crab_skymodel(axes, prefactor, index, sigma):
     Returns
     -------
     crab : ndarray
-        flux of crab nebula in sky for power-law 
+        flux of crab nebula in sky for power-law
     """
     energy, delx, dely = axes
 
@@ -104,9 +104,9 @@ def crab_skymodel(axes, prefactor, index, sigma):
         ----------
         delx : angle
             offset angle in x direction
-        dely : angle 
+        dely : angle
             offset angle in y direction
-        
+       
         Returns
         -------
         out : float
@@ -127,7 +127,7 @@ def crab_skymodel(axes, prefactor, index, sigma):
         out : astropy.Quantity
             spectral value
         """
-        refernce_energy = 100 * u.GeV 
+        refernce_energy = 100 * u.GeV
         return prefactor * (energy / refernce_energy)**index
 
     # TODO: order of meshgrid is not clear
@@ -140,7 +140,7 @@ def get_pred_cube(axes, model, exposure, background, **kwargs):
 
     Parameters
     ----------
-    axes : tuple of 1-D array 
+    axes : tuple of 1-D array
         energy, dx, dy center of bins
     model : function
         source skymodel
@@ -151,9 +151,9 @@ def get_pred_cube(axes, model, exposure, background, **kwargs):
     **kwargs : dict
         parameter set of input model
     
-    Returns 
+    Returns
     -------
-    pred_cube : 3-D array 
+    pred_cube : 3-D array
         prediction data cube of given model and background
     """
     return model(axes, **kwargs) * exposure + background
@@ -167,16 +167,16 @@ def get_likelihood(pred_cube, counts, **kwargs):
     pred_cube : 3-D array
         prediction cube from model
     counts : 3-D array
-        observation data cube 
+        observation data cube
 
-    Returns 
+    Returns
     -------
-    out : float 
+    out : float
         log likelihood of parameters for prediction cube
     """
     pred_total = np.sum(pred_cube)
     # In order to avoid too large number for fatorial
-    # use Stirling's Approximation here, which is 
+    # use Stirling's Approximation here, which is
     # ln(n!) = n * ln(n) - n (first order approximation)
     mask_large = counts > 10
     counts_masked = np.ma.masked_array(counts, mask=mask_large)
@@ -188,7 +188,7 @@ def get_likelihood(pred_cube, counts, **kwargs):
     counts_factorial = np.zeros_like(counts)
     counts_factorial[~mask_large] = np.log10(factorial(counts_masked[~mask_large]))
     counts_factorial[mask_large] = counts_masked[mask_large] * np.log10(counts_masked[mask_large]) \
-                                            - counts_masked[mask_large] * np.log10(np.e) 
+                                            - counts_masked[mask_large] * np.log10(np.e)
     # For a given bin range, data_fatorial is reusable
     data_factorial = np.sum(counts_factorial)
     # TODO : What if element in pred_cube equals zero?
@@ -208,7 +208,7 @@ def plot_cube(cube, index):
     index : slice object
         index of maps to be plotted
 
-    Returns 
+    Returns
     -------
     fig : figure object
     axs : list of axes object
@@ -218,7 +218,7 @@ def plot_cube(cube, index):
     # Plot 2D map for every energy bin
     for ax, _map in zip(axs, _maps):
         ax.imshow(_map)
-    # Plot SED for center pixel 
+    # Plot SED for center pixel
     axs[-1].plot(cube[:, 20, 25], "ro--")
     axs[-1].loglog()
     fig.tight_layout()
