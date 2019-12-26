@@ -147,3 +147,4 @@ class MapModel:
         plt.xlabel('Energy')
         plt.ylabel('counts')
         plt.title('flux')
+        plt.legend()
