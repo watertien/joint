@@ -225,15 +225,31 @@ def plot_cube(cube, index):
     return fig, axs
 
 
-if __name__ == "__main__":
-    fname = "./Fermi-LAT-3FHL_data_Fermi-LAT.fits"
-    fermi_hdul = read(fname)
+def apply_psf(axes, pred_cube, psf_cube):
+    """Apply Point Spread Function(PSF) to prediction cube
 
-    # Log interpolation, center = (lo * hi)^0.5
-    energy_center = fermi_hdul["COUNTS_BANDS"].data.field(1) * u.TeV
-    energy_lo = fermi_hdul["COUNTS_BANDS"].data.field(2) * u.TeV
-    energy_hi = fermi_hdul["COUNTS_BANDS"].data.field(3) * u.TeV
-    # BANDS are the same for COUNTS, BKG, PSF, so just assign once here
-    exposure = fermi_hdul["EXPOSURE"].data
-    background = fermi_hdul["BACKGROUND"].data
-    counts = fermi_hdul["COUNTS"].data
+    Parameters
+    ----------
+    axes : tuple of 1-D arrays
+        (energy, dx, dy) axes in binned likelihood analysis
+    pred_cube : 3-D array
+        prediction cube given by model
+    psf_cube : 3-D array
+        PSF cube
+
+    Returns
+    -------
+    pred_with_psf : 3-D array
+        2-D(spatial direction) convolution of pred_cube and psf_cube 
+    """
+    # TODO : support binning in this function
+    from scipy.signal import convolve2d
+    if not pred_cube.ndim != psf_cube.ndim:
+        raise ValueError("Input arrays must have the same dimension\n"
+                        + "(pred_cube{pred_cube.shape}, psf_cube{psf_cube.shape}")
+    # Make sure the first dimension is ENERGY
+    pred_with_psf = np.zeros_like(pred_cube)
+    for i, map2d in enumerate(pred_cube):
+        # TODO : determine kwargs for convolve2d
+        pred_with_psf[i] = convolve2d(map2d, psf_cube[i])
+    return pred_with_psf
