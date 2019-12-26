@@ -46,7 +46,7 @@ def get_flux(hdulist, axes):
     """
 
 
-def model_fit(data, axes, model, optimizer):
+def model_fit(data, axes, model, optimizer, **kwargs):
     """Fit data with given model
 
     Parameters
@@ -60,17 +60,52 @@ def model_fit(data, axes, model, optimizer):
     optimizer : str
         Optimization method to be used in scipy.optimize,
         options are: BFGS, COBYLA, least_squares etc.
+    kwargs : dict
+        parameters to be fitted
 
     Returns
     -------
-    fit_parameters : 1-D array
-        Best fit parameter set
-    fit_covariance : matrix
-        Covariance matrix of fit result
+    result : fit result object
+        Best fit result
     """
+    paras_name = ["prefactor", "index", "sigma"]
+    # Store unit info
+    paras_unit = [kwargs[i].unit for i in paras_name]
+    paras_value = [kwargs[i].value for i in paras_name]
+    # Remove unit from kwarg for fit convenience
+    kwargs.update(dict(zip(paras_name, paras_value)))
+    x0 = kwargs.pop("x0")
+
+    def model_likelihood(paras_value):
+        """Objective function be to minizied for model fitting
+
+        Parameters
+        ----------
+        paras_values : (n,) ndarray
+            array containing parameter to be fitted
+
+        Return
+        ------
+        nlog_likelihood : float
+            negative of log likelihood for parameter set of given model
+        """
+        # TODO : replace constant list of parameter name with more general method
+        paras_dict = dict(zip(paras_name, paras_value * paras_unit))
+        # Update kwargs when fitting
+        kwargs.update(paras_dict)
+        pred_cube = get_pred_cube(axes, model, **kwargs)
+        return -get_likelihood(pred_cube, data)
+
+    from scipy.optimize import minimize
+    
+    result = minimize(model_likelihood, x0,\
+                       method=optimizer)
+    # Restore unit info
+    result.x = np.array(result.x * paras_unit)
+    return result
 
 
-def crab_skymodel(axes, prefactor, index, sigma):
+def crab_skymodel(axes, prefactor, index, sigma, **kwargs):
     """Spatial and spectral model of crab
 
     Parameters
@@ -159,7 +194,7 @@ def get_pred_cube(axes, model, exposure, background, **kwargs):
     return model(axes, **kwargs) * exposure + background
 
 
-def get_likelihood(pred_cube, counts, **kwargs):
+def get_likelihood(pred_cube, counts):
     """Calculate binned likelihood
     
     Parameters
@@ -243,6 +278,7 @@ def apply_psf(axes, pred_cube, psf_cube):
         2-D(spatial direction) convolution of pred_cube and psf_cube 
     """
     # TODO : support binning in this function
+    # Gammapy uses scipy.signal.fftconvolve  
     from scipy.signal import convolve2d
     if not pred_cube.ndim != psf_cube.ndim:
         raise ValueError("Input arrays must have the same dimension\n"

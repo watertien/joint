@@ -1,7 +1,7 @@
-from joint import read, crab_skymodel, plot_cube, get_likelihood, get_pred_cube
 import astropy.units as u
 import numpy as np
 import matplotlib.pyplot as plt
+from joint import *
 
 if __name__ == "__main__":
     fname = "/home/tian/Documents/my_joint/Fermi-LAT-3FHL_data_Fermi-LAT.fits"
@@ -25,12 +25,21 @@ if __name__ == "__main__":
     dx = (dx_edges[:-1] + dx_edges[1:]) / 2
     dy = (dy_edges[:-1] + dy_edges[1:]) / 2
     # test_likelihood = get_likelihood((energy_center, dx, dy), crab_skymodel, **test_parameter)
-    guess_parameter = {"prefactor": 1e-10, "index": -3.18, "sigma": 0.5 * u.degree}
-    guess_pred = get_pred_cube((energy_center, dx, dy), crab_skymodel,\
-                                exposure, background, **guess_parameter)
-    guess_likelihood = get_likelihood(guess_pred, counts)
-    print(f"data: {get_likelihood(counts, counts):.3E}\n"
-           f"guess: {guess_likelihood:.3E}")
+    guess_parameter = {"prefactor": 1e-10 * u.Unit(""), "index": -3.18 * u.Unit(""), "sigma": 0.5 * u.degree}
+    
+    fit_kwargs = {"x0": [1e-10, -3.18, 0.2]}
+    fit_kwargs.update(guess_parameter)
+    fit_kwargs["exposure"] = exposure
+    fit_kwargs["background"] = background
+    axes = (energy_center, dx, dy)
+
+    test_fit = model_fit(counts, axes, crab_skymodel, "Nelder-Mead", **fit_kwargs)
+    print(test_fit.x, test_fit.message, sep='\n')
+    # guess_pred = get_pred_cube((energy_center, dx, dy), crab_skymodel,\
+    #                             exposure, background, **guess_parameter)
+    # guess_likelihood = get_likelihood(guess_pred, counts)
+    # print(f"data: {get_likelihood(counts, counts):.3E}\n"
+    #        f"guess: {guess_likelihood:.3E}")
     # dx = np.arange()  
     # dy = np.arange()  
     # dx = np.linspace(-1, 1, 50) * u.degree
