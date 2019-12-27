@@ -94,6 +94,9 @@ def model_fit(data, axes, model, optimizer, **kwargs):
         # Update kwargs when fitting
         kwargs.update(paras_dict)
         pred_cube = get_pred_cube(axes, model, **kwargs)
+        # Apply psf if True
+        if kwargs["psf"]:
+            pred_cube = apply_psf(axes, pred_cube, kwargs["psf_cube"])
         return -get_likelihood(pred_cube, data)
 
     from scipy.optimize import minimize
@@ -280,12 +283,13 @@ def apply_psf(axes, pred_cube, psf_cube):
     # TODO : support binning in this function
     # Gammapy uses scipy.signal.fftconvolve  
     from scipy.signal import convolve2d
-    if not pred_cube.ndim != psf_cube.ndim:
+    if pred_cube.ndim != psf_cube.ndim:
         raise ValueError("Input arrays must have the same dimension\n"
-                        + "(pred_cube{pred_cube.shape}, psf_cube{psf_cube.shape}")
+                        + f"(pred_cube{pred_cube.shape}, psf_cube{psf_cube.shape}")
     # Make sure the first dimension is ENERGY
     pred_with_psf = np.zeros_like(pred_cube)
     for i, map2d in enumerate(pred_cube):
         # TODO : determine kwargs for convolve2d
-        pred_with_psf[i] = convolve2d(map2d, psf_cube[i])
+        # map2d should be counts without any unit
+        pred_with_psf[i] = convolve2d(map2d, psf_cube[i], mode="same")
     return pred_with_psf

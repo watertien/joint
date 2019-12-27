@@ -15,6 +15,7 @@ if __name__ == "__main__":
     exposure = fermi_hdul["EXPOSURE"].data
     background = fermi_hdul["BACKGROUND"].data
     counts = fermi_hdul["COUNTS"].data
+    psf_cube = fermi_hdul["PSF_KERNEL"].data
 
     # Read deltx and delty from FITS 
     deltx = fermi_hdul["COUNTS"].header["CDELT1"] 
@@ -31,6 +32,8 @@ if __name__ == "__main__":
     fit_kwargs.update(guess_parameter)
     fit_kwargs["exposure"] = exposure
     fit_kwargs["background"] = background
+    fit_kwargs["psf"] = True
+    fit_kwargs["psf_cube"] = psf_cube
     axes = (energy_center, dx, dy)
 
     test_fit = model_fit(counts, axes, crab_skymodel, "Nelder-Mead", **fit_kwargs)
