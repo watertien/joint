@@ -98,7 +98,7 @@ def model_fit(data, axes, model, optimizer, **kwargs):
         # Apply psf if True
         if kwargs["psf"]:
             pred_cube = apply_psf(axes, pred_cube, kwargs["psf_cube"])
-        return -get_likelihood(pred_cube, data)
+        return -np.sum(get_likelihood(pred_cube, data))
 
     from scipy.optimize import minimize
     
@@ -202,8 +202,32 @@ def get_pred_cube(axes, model, exposure, background, **kwargs):
     return model(axes, **kwargs) * exposure * energy_binsize + background
 
 
-def get_pred_int_cube(edges, model, exposure, background, **kwargs):
-    pass
+def get_ts_cube(model, data, axes, exposure, background, **kwargs):
+    """Calculte test statistic cube for a model
+    
+    Parameters
+    ----------
+    model : function
+        model to be test
+    data : 3-D array
+        observation data
+    axes : tuple of 1-D array
+        cube coordinate
+    exposure : 3-D array
+        exposure cube
+    background : 3-D array
+        background cube
+    
+    Returns
+    -------
+    ts_cube : 3-D array
+        test statistic cube for given model and data
+    """
+    bkg_like = get_likelihood(background, data)
+    pred_cube = get_pred_cube(axes, model, exposure, background, **kwargs)
+    model_like = get_likelihood(pred_cube, data)
+    ts_cube = -2 * (bkg_like - model_like)
+    return ts_cube
 
 
 def get_likelihood(pred_cube, counts):
@@ -218,10 +242,9 @@ def get_likelihood(pred_cube, counts):
 
     Returns
     -------
-    out : float
+    log_like : 3-D array
         log likelihood of parameters for prediction cube
     """
-    pred_total = np.sum(pred_cube)
     # In order to avoid too large number for fatorial
     # use Stirling's Approximation here, which is
     # ln(n!) = n * ln(n) - n (first order approximation)
@@ -235,12 +258,11 @@ def get_likelihood(pred_cube, counts):
     counts_factorial[~mask_large] = np.log10(factorial(counts_masked[~mask_large]))
     counts_factorial[mask_large] = counts_masked[mask_large] * np.log10(counts_masked[mask_large]) \
                                             - counts_masked[mask_large] * np.log10(np.e)
-    # For a given bin range, data_fatorial is reusable
-    data_factorial = np.sum(counts_factorial)
+    # For a given bin range, counts_factorial is reusable
     # TODO : What if element in pred_cube equals zero?
     # To avoid zero division, add a tiny quantity to pred_cube
-    log_like = np.sum(counts * np.log10(pred_cube + 1e-12)) - data_factorial
-    log_like = -pred_total * np.log10(np.e) + log_like
+    log_like = counts * np.log10(pred_cube + 1e-12) \
+                - pred_cube * np.log10(np.e) - counts_factorial
     return log_like
 
 
@@ -263,7 +285,8 @@ def plot_cube(cube, index):
     fig, axs = plt.subplots(nrows=len(_maps) + 1, figsize=(10, 20))
     # Plot 2D map for every energy bin
     for ax, _map in zip(axs, _maps):
-        ax.imshow(_map)
+        pos = ax.imshow(_map, cmap="coolwarm")
+        fig.colorbar(pos, ax=ax)
     # Plot SED for center pixel
     axs[-1].plot(cube[:, 20, 25], "ro--")
     axs[-1].loglog()

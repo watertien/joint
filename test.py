@@ -34,28 +34,6 @@ def hdu_plot():
 
 
 def test_fit():
-    fname = "/home/tian/Documents/my_joint/Fermi-LAT-3FHL_data_Fermi-LAT.fits"
-    fermi_hdul = read(fname)
-
-    # Log interpolation, center = (lo * hi)^0.5
-    energy_center = fermi_hdul["COUNTS_BANDS"].data.field(1) * u.TeV
-    energy_lo = fermi_hdul["COUNTS_BANDS"].data.field(2) * u.TeV
-    energy_hi = fermi_hdul["COUNTS_BANDS"].data.field(3) * u.TeV
-    # BANDS are the same for COUNTS, BKG, PSF, so just assign once here
-    exposure = fermi_hdul["EXPOSURE"].data * u.Unit(fermi_hdul["EXPOSURE"].header["BUNIT"])
-    background = fermi_hdul["BACKGROUND"].data * u.Unit("")
-    counts = fermi_hdul["COUNTS"].data * u.Unit("")
-    psf_cube = fermi_hdul["PSF_KERNEL"].data * u.Unit("")
-
-    # Read deltx and delty from FITS 
-    deltx = fermi_hdul["COUNTS"].header["CDELT1"] 
-    delty = fermi_hdul["COUNTS"].header["CDELT2"] 
-    dx_edges = np.linspace(-25, 25, 51) * u.degree * deltx
-    dy_edges = np.linspace(-20, 20, 41) * u.degree * delty
-    # Use averge value for position center coordinate
-    dx = (dx_edges[:-1] + dx_edges[1:]) / 2
-    dy = (dy_edges[:-1] + dy_edges[1:]) / 2
-
     guess_parameter = {"prefactor": 1e-10 * u.Unit("cm-2 s-1 GeV-1"), \
                      "index": -3.18 * u.Unit(""),\
                      "sigma": 0.1 * u.degree}
@@ -66,12 +44,38 @@ def test_fit():
     fit_kwargs["background"] = background
     fit_kwargs["psf"] = False
     fit_kwargs["psf_cube"] = psf_cube
-    axes = (energy_center, dx, dy)
 
     test_fit_result = model_fit(counts, axes, crab_skymodel, "Nelder-Mead", **fit_kwargs)
-    print(test_fit.x, test_fit.message, sep='\n')
+    print(test_fit_result.x, test_fit_result.message, sep='\n')
     return test_fit_result
 
 
+fname = "Fermi-LAT-3FHL_data_Fermi-LAT.fits"
+fermi_hdul = read(fname)
+
+# Log interpolation, center = (lo * hi)^0.5
+energy_center = fermi_hdul["COUNTS_BANDS"].data.field(1) * u.TeV
+energy_lo = fermi_hdul["COUNTS_BANDS"].data.field(2) * u.TeV
+energy_hi = fermi_hdul["COUNTS_BANDS"].data.field(3) * u.TeV
+# BANDS are the same for COUNTS, BKG, PSF, so just assign once here
+exposure = fermi_hdul["EXPOSURE"].data * u.Unit(fermi_hdul["EXPOSURE"].header["BUNIT"])
+background = fermi_hdul["BACKGROUND"].data * u.Unit("")
+counts = fermi_hdul["COUNTS"].data * u.Unit("")
+psf_cube = fermi_hdul["PSF_KERNEL"].data * u.Unit("")
+
+# Read deltx and delty from FITS 
+deltx = fermi_hdul["COUNTS"].header["CDELT1"] 
+delty = fermi_hdul["COUNTS"].header["CDELT2"] 
+dx_edges = np.linspace(-25, 25, 51) * u.degree * deltx
+dy_edges = np.linspace(-20, 20, 41) * u.degree * delty
+# Use averge value for position center coordinate
+dx = (dx_edges[:-1] + dx_edges[1:]) / 2
+dy = (dy_edges[:-1] + dy_edges[1:]) / 2
+axes = (energy_center, dx, dy)
+
 if __name__ == "__main__":
-    test_fit()
+    fit_result = test_fit()
+    fit_dict = dict(zip(["prefactor", "index", "sigma"], fit_result.x))
+    fit_pred = get_pred_cube(axes, crab_skymodel, exposure, background, **fit_dict)
+    fig, axs = plot_cube(fit_pred, slice(5))
+    fig.savefig("test_ts_map.png", dpi=500)
