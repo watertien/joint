@@ -1,4 +1,5 @@
 """a Python interface for Fermi-LAT"""
+# Energy unit in this file is GeV
 from astropy.io import fits
 import astropy.units as u
 import numpy as np
@@ -121,8 +122,8 @@ def crab_skymodel(axes, prefactor, index, sigma, **kwargs):
             x offset
     axes : tuple of 1-D array
         cube axes
-    prefactor : float
-        prefactor for spectral model
+    prefactor : astropy.quantity
+        prefactor for spectral model Unit: count/GeV/cm2/s
     index : float
         power law index
     sigma : angle
@@ -163,10 +164,10 @@ def crab_skymodel(axes, prefactor, index, sigma, **kwargs):
         Returns
         -------
         out : astropy.Quantity
-            spectral value
+            dN/dE value at given energy Unit: count/GeV/cm/s
         """
-        refernce_energy = 100 * u.GeV
-        return prefactor * (energy / refernce_energy)**index
+        referennce_energy = 1 * u.GeV
+        return prefactor * (energy / referennce_energy)**index
 
     # TODO: order of meshgrid is not clear
     yy, ee, xx, = np.meshgrid(dely, energy, delx)
@@ -194,7 +195,15 @@ def get_pred_cube(axes, model, exposure, background, **kwargs):
     pred_cube : 3-D array
         prediction data cube of given model and background
     """
-    return model(axes, **kwargs) * exposure + background
+    # TODO : consider integrating dN/dE
+    # Use a temporary fake integral here 
+    energy_binsize = axes[0][1] - axes[0][0] # energy unit
+    # background is count(dimensionless)
+    return model(axes, **kwargs) * exposure * energy_binsize + background
+
+
+def get_pred_int_cube(edges, model, exposure, background, **kwargs):
+    pass
 
 
 def get_likelihood(pred_cube, counts):
@@ -218,7 +227,6 @@ def get_likelihood(pred_cube, counts):
     # ln(n!) = n * ln(n) - n (first order approximation)
     mask_large = counts > 10
     counts_masked = np.ma.masked_array(counts, mask=mask_large)
-    mask_large = counts > 10
     # Only elements less than 10 is valid
     # TODO : use masked array to do condition slicing
     # counts_masked = np.ma.masked_array(counts, mask=mask_large)
