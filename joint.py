@@ -91,7 +91,6 @@ def model_fit(data, axes, model, optimizer, **kwargs):
         nlog_likelihood : float
             negative of log likelihood for parameter set of given model
         """
-        # TODO : replace constant list of parameter name with more general method
         paras_dict = dict(zip(paras_name, paras_value * paras_unit))
         # Update kwargs when fitting
         kwargs.update(paras_dict)
@@ -198,7 +197,8 @@ def get_pred_cube(axes, model, exposure, background, **kwargs):
     """
     # TODO : consider integrating dN/dE
     # Use a temporary fake integral here 
-    energy_binsize = axes[0][1] - axes[0][0] # energy unit
+    # energy_binsize = axes[0][1] - axes[0][0] # energy unit
+    energy_binsize = 0.1 * u.TeV
     # background is count(dimensionless)
     return model(axes, **kwargs) * exposure * energy_binsize + background
 
@@ -257,7 +257,14 @@ def get_sensitivity(model, data, axes, exposure, background, **kwargs):
     Use a 2-D gaussian spatial distribution function to fit
     count maps on different energys to get differential sensitivity.
     """
-    pass
+    # Try to use model_fit() function
+    # Get energy dimension length and create output array
+    energy = axes[0]
+    diff_sen = np.zeros(energy.size, dtype="float64")
+
+    for i in energy:
+        # Call model_fit() but in 2-D version
+        pass
 
 
 def get_likelihood(pred_cube, counts):

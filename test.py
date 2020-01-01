@@ -1,5 +1,7 @@
 import astropy.units as u
 import numpy as np
+from astropy.visualization import quantity_support
+quantity_support()
 import matplotlib.pyplot as plt
 from joint import *
 
@@ -39,16 +41,40 @@ def test_fit():
                      "sigma": 0.1 * u.degree}
     
     fit_kwargs = {"x0": [1e-10, -3.18, 0.2]}
+    fit_kwargs["paras_name"] = {"prefactor", "index", "sigma"}
     fit_kwargs.update(guess_parameter)
     fit_kwargs["exposure"] = exposure
     fit_kwargs["background"] = background
     fit_kwargs["psf"] = False
     fit_kwargs["psf_cube"] = psf_cube
-
+    axes = (energy_center, dx, dy)
     test_fit_result = model_fit(counts, axes, crab_skymodel, "Nelder-Mead", **fit_kwargs)
     print(test_fit_result.x, test_fit_result.message, sep='\n')
     return test_fit_result
 
+
+def test_sensitivity():
+    guess_parameter = {"prefactor": 1e-10 * u.Unit("cm-2 s-1 GeV-1"), \
+                     "index": -3.18 * u.Unit(""),\
+                     "sigma": 0.1 * u.degree}
+    
+    fit_kwargs = {"x0": [1e-10]}
+    fit_kwargs["paras_name"] = {"prefactor"}
+    fit_kwargs.update(guess_parameter)
+    fit_kwargs["exposure"] = exposure
+    fit_kwargs["background"] = background
+    fit_kwargs["psf"] = False
+    fit_kwargs["psf_cube"] = psf_cube
+    bar = np.ones(5) * u.Unit("cm-2 s-1 GeV-1")
+    for i in range(5):
+       axes = (energy_center[i,np.newaxis], dx, dy)
+       test_fit_result = model_fit(counts[i,np.newaxis], axes, crab_skymodel, "Nelder-Mead", **fit_kwargs)
+       print(test_fit_result.x, test_fit_result.message, sep='\n')
+       bar[i] = test_fit_result.x[0]
+    plt.plot(energy_center, bar, "ko--")
+    plt.loglog()
+    plt.savefig("test_sensitivity.png", dpi=500)
+    return bar
 
 fname = "Fermi-LAT-3FHL_data_Fermi-LAT.fits"
 fermi_hdul = read(fname)
@@ -61,6 +87,8 @@ energy_hi = fermi_hdul["COUNTS_BANDS"].data.field(3) * u.TeV
 exposure = fermi_hdul["EXPOSURE"].data * u.Unit(fermi_hdul["EXPOSURE"].header["BUNIT"])
 background = fermi_hdul["BACKGROUND"].data * u.Unit("")
 counts = fermi_hdul["COUNTS"].data * u.Unit("")
+counts1 = counts.copy()
+# counts1[-1, 20:30, 20:30] += 1000
 psf_cube = fermi_hdul["PSF_KERNEL"].data * u.Unit("")
 
 # Read deltx and delty from FITS 
@@ -71,11 +99,12 @@ dy_edges = np.linspace(-20, 20, 41) * u.degree * delty
 # Use averge value for position center coordinate
 dx = (dx_edges[:-1] + dx_edges[1:]) / 2
 dy = (dy_edges[:-1] + dy_edges[1:]) / 2
-axes = (energy_center, dx, dy)
 
 if __name__ == "__main__":
-    fit_result = test_fit()
-    fit_dict = dict(zip(["prefactor", "index", "sigma"], fit_result.x))
-    fit_pred = get_pred_cube(axes, crab_skymodel, exposure, background, **fit_dict)
-    fig, axs = plot_cube(fit_pred, slice(5))
-    fig.savefig("test_ts_map.png", dpi=500)
+    test_sensitivity()   
+    # fit_dict = dict(zip(["prefactor", "index", "sigma"], fit_result.x))
+    # fit_pred = get_pred_cube(axes, crab_skymodel, exposure, background, **fit_dict)
+    # ts_cube = get_ts_cube(crab_skymodel, counts, axes, exposure, background, **fit_dict)
+    # fig, axs = plot_cube(ts_cube, slice(5))
+    # fig.savefig("test_ts_map.png", dpi=500)
+    # plt.show()
