@@ -69,7 +69,8 @@ def model_fit(data, axes, model, optimizer, **kwargs):
     result : fit result object
         Best fit result
     """
-    paras_name = ["prefactor", "index", "sigma"]
+    # paras_name = ["prefactor", "index", "sigma"]
+    paras_name = kwargs["paras_name"]
     # Store unit info
     paras_unit = [kwargs[i].unit for i in paras_name]
     paras_value = [kwargs[i].value for i in paras_name]
@@ -96,7 +97,7 @@ def model_fit(data, axes, model, optimizer, **kwargs):
         kwargs.update(paras_dict)
         pred_cube = get_pred_cube(axes, model, **kwargs)
         # Apply psf if True
-        if kwargs["psf"]:
+        if kwargs["psf"] and kwargs["psf_cube"] is not None:
             pred_cube = apply_psf(axes, pred_cube, kwargs["psf_cube"])
         return -np.sum(get_likelihood(pred_cube, data))
 
@@ -228,6 +229,35 @@ def get_ts_cube(model, data, axes, exposure, background, **kwargs):
     model_like = get_likelihood(pred_cube, data)
     ts_cube = -2 * (bkg_like - model_like)
     return ts_cube
+
+
+def get_sensitivity(model, data, axes, exposure, background, **kwargs):
+    """Calculate differential sensitivity
+
+    Parameters
+    ----------
+    model : function
+        skymodel of source
+    data : 3-D array
+        count data cube Unit: (count)
+    axes : tuple of 1-D array
+        (energy, dx, dy)
+    exposure : 3-D array
+        exposure cube Unit: cm^2 s
+    background : 3-D array
+        background cube Unit: (count)
+
+    Returns
+    -------
+    diff_sen : 1-D array
+        fit results of prefactor for each energy
+
+    Notes
+    -----
+    Use a 2-D gaussian spatial distribution function to fit
+    count maps on different energys to get differential sensitivity.
+    """
+    pass
 
 
 def get_likelihood(pred_cube, counts):
