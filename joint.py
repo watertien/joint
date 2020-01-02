@@ -259,12 +259,26 @@ def get_sensitivity(model, data, axes, exposure, background, **kwargs):
     """
     # Try to use model_fit() function
     # Get energy dimension length and create output array
-    energy = axes[0]
-    diff_sen = np.zeros(energy.size, dtype="float64")
+    energy, dx, dy = axes
+    diff_sen = np.zeros(energy.size, dtype="float64") * u.Unit("cm-2 s-1 GeV-1")
+    guess_parameter = {"prefactor": 1e-10 * u.Unit("cm-2 s-1 GeV-1"), \
+                     "index": -2 * u.Unit(""),\
+                     "sigma": 0.1 * u.degree}
+    
+    fit_kwargs = {"x0": [1e-10]}
+    fit_kwargs["paras_name"] = {"prefactor"}
+    fit_kwargs.update(guess_parameter)
+    fit_kwargs["exposure"] = exposure
+    fit_kwargs["background"] = background
+    fit_kwargs["psf"] = False
 
-    for i in energy:
-        # Call model_fit() but in 2-D version
-        pass
+    for i in range(energy.size):
+       axes = (energy[i, np.newaxis], dx, dy)
+       map_fit_result = model_fit(data[i, np.newaxis], axes, crab_skymodel,\
+                                    "Nelder-Mead", **fit_kwargs)
+       print(map_fit_result.x, map_fit_result.message, sep='\n')
+       diff_sen[i] = map_fit_result.x[0]
+    return diff_sen
 
 
 def get_likelihood(pred_cube, counts):

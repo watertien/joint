@@ -54,27 +54,52 @@ def test_fit():
 
 
 def test_sensitivity():
+    axes = (energy_center, dx, dy)
+    diff_sen = get_sensitivity(crab_skymodel, counts, axes, exposure, background)
     guess_parameter = {"prefactor": 1e-10 * u.Unit("cm-2 s-1 GeV-1"), \
-                     "index": -3.18 * u.Unit(""),\
+                     "index": -2 * u.Unit(""),\
                      "sigma": 0.1 * u.degree}
-    
-    fit_kwargs = {"x0": [1e-10]}
-    fit_kwargs["paras_name"] = {"prefactor"}
-    fit_kwargs.update(guess_parameter)
-    fit_kwargs["exposure"] = exposure
-    fit_kwargs["background"] = background
-    fit_kwargs["psf"] = False
-    fit_kwargs["psf_cube"] = psf_cube
-    bar = np.ones(5) * u.Unit("cm-2 s-1 GeV-1")
-    for i in range(5):
-       axes = (energy_center[i,np.newaxis], dx, dy)
-       test_fit_result = model_fit(counts[i,np.newaxis], axes, crab_skymodel, "Nelder-Mead", **fit_kwargs)
-       print(test_fit_result.x, test_fit_result.message, sep='\n')
-       bar[i] = test_fit_result.x[0]
-    plt.plot(energy_center, bar, "ko--")
-    plt.loglog()
-    plt.savefig("test_sensitivity.png", dpi=500)
-    return bar
+    ts_cube = np.zeros_like(counts)
+
+    for i, sen in enumerate(diff_sen):
+        # Calculate TS on each energy bin
+        guess_parameter.update({"prefactor": sen})
+        sub_axes = (energy_center[i, np.newaxis], dx, dy)
+        ts_cube[i] = get_ts_cube(crab_skymodel, counts[i, np.newaxis], sub_axes,\
+                                exposure[i, np.newaxis], background[i, np.newaxis],
+                                **guess_parameter)
+    return ts_cube
+
+
+def test_sens_ts():
+    # axes = (energy_center, dx, dy)
+    # Calculate TS for different prefactors
+    test_sens = np.logspace(-12, -7, num=10) * u.Unit("cm-2 s-1 GeV-1")
+    ts_prefactor = np.zeros(test_sens.size)
+    guess_parameter = {"prefactor": 1e-10 * u.Unit("cm-2 s-1 GeV-1"), \
+                     "index": -2 * u.Unit(""),\
+                     "sigma": 0.1 * u.degree}
+    fig, axs = plt.subplots(nrows=energy_center.size, ncols=1,\
+                            sharex=True, figsize=(10, 20))
+    for i in range(energy_center.size):
+        sub_axes = (energy_center[i, np.newaxis], dx, dy)
+        for j, sen in enumerate(test_sens):
+            # Calculate TS on each energy bin
+            guess_parameter.update({"prefactor": sen})
+            ts_cube = get_ts_cube(crab_skymodel, counts[i, np.newaxis], sub_axes,\
+                                    exposure[i, np.newaxis], background[i, np.newaxis],
+                                    **guess_parameter)
+            ts_prefactor[j] = np.sum(ts_cube)
+        axs[i].plot(test_sens, ts_prefactor, 'o--',\
+                    label=f"energy index{i}, {energy_center[i]:.3f}")
+        axs[i].axhline(y=25, lw=3, color='red')
+        axs[i].legend()
+    fig.tight_layout()
+    fig.subplots_adjust(hspace=0)
+    plt.xscale("log")
+    plt.savefig("ts_for_different_prefactor.png", dpi=500)
+    return test_sens, ts_prefactor
+
 
 fname = "Fermi-LAT-3FHL_data_Fermi-LAT.fits"
 fermi_hdul = read(fname)
@@ -101,7 +126,10 @@ dx = (dx_edges[:-1] + dx_edges[1:]) / 2
 dy = (dy_edges[:-1] + dy_edges[1:]) / 2
 
 if __name__ == "__main__":
-    test_sensitivity()   
+    # ts_cube = test_sensitivity()
+    # ts_arr = np.sum(ts_cube, axis=(1, 2))
+    # Test impact of prefactor for TS
+    sens, ts = test_sens_ts()
     # fit_dict = dict(zip(["prefactor", "index", "sigma"], fit_result.x))
     # fit_pred = get_pred_cube(axes, crab_skymodel, exposure, background, **fit_dict)
     # ts_cube = get_ts_cube(crab_skymodel, counts, axes, exposure, background, **fit_dict)
